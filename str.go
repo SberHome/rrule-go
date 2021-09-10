@@ -18,24 +18,16 @@ const (
 	DateFormat = "20060102"
 )
 
-type TzidParser struct {
-	timezones *sync.Map
-}
-
-func NewTzidParser() *TzidParser {
-	return &TzidParser{
-		timezones: new(sync.Map),
-	}
-}
+var timezones = new(sync.Map)
 
 // parseTZID parses TZID value and returns location
 // corresponding to a file in the IANA Time Zone database.
 // The function caches location values in the hash table inside of tzidParser.
-func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
+func parseTZID(s string) (*time.Location, error) {
 	if len(s) == 0 {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
-	val, has := parser.timezones.Load(s)
+	val, has := timezones.Load(s)
 	location := val.(*time.Location)
 	if has {
 		return location, nil
@@ -44,28 +36,15 @@ func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
 	if err != nil {
 		return nil, err
 	}
-	parser.timezones.Store(s, location)
+	timezones.Store(s, location)
 	return location, nil
-}
-
-type StringConverter struct {
-	tzidParser *TzidParser
-}
-
-func NewStringConverter(parser *TzidParser) (*StringConverter, error) {
-	if parser == nil {
-		return nil, errors.New("TZID parser is empty")
-	}
-	return &StringConverter{
-		tzidParser: parser,
-	}, nil
 }
 
 func timeToStr(time time.Time) string {
 	return time.UTC().Format(DateTimeFormat)
 }
 
-func (cnv *StringConverter) strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
+func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
 	if len(str) == len(DateFormat) {
 		return time.ParseInLocation(DateFormat, str, loc)
 	}
@@ -82,7 +61,7 @@ func (f Frequency) String() string {
 		"HOURLY", "MINUTELY", "SECONDLY"}[f]
 }
 
-func (cnv *StringConverter) StrToFreq(str string) (Frequency, error) {
+func StrToFreq(str string) (Frequency, error) {
 	freqMap := map[string]Frequency{
 		"YEARLY": YEARLY, "MONTHLY": MONTHLY, "WEEKLY": WEEKLY, "DAILY": DAILY,
 		"HOURLY": HOURLY, "MINUTELY": MINUTELY, "SECONDLY": SECONDLY,
@@ -207,14 +186,14 @@ func (option *ROption) RRuleString() string {
 }
 
 // StrToROption converts string to ROption.
-func (cnv *StringConverter) StrToROption(rfcString string) (*ROption, error) {
-	return cnv.StrToROptionInLocation(rfcString, time.UTC)
+func StrToROption(rfcString string) (*ROption, error) {
+	return StrToROptionInLocation(rfcString, time.UTC)
 }
 
 // StrToROptionInLocation is same as StrToROption but in case local
 // time is supplied as date-time/date field (ex. UNTIL), it is parsed
 // as a time in a given location (time zone)
-func (cnv *StringConverter) StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, error) {
+func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, error) {
 	rfcString = strings.TrimSpace(rfcString)
 	strs := strings.Split(rfcString, "\n")
 	var rruleStr, dtstartStr string
@@ -240,7 +219,7 @@ func (cnv *StringConverter) StrToROptionInLocation(rfcString string, loc *time.L
 			return nil, fmt.Errorf("expect DTSTART but: %s", firstName)
 		}
 
-		result.Dtstart, err = cnv.StrToDtStart(dtstartStr[len(firstName)+1:], loc)
+		result.Dtstart, err = StrToDtStart(dtstartStr[len(firstName)+1:], loc)
 		if err != nil {
 			return nil, fmt.Errorf("StrToDtStart failed: %s", err)
 		}
@@ -258,10 +237,10 @@ func (cnv *StringConverter) StrToROptionInLocation(rfcString string, loc *time.L
 		var e error
 		switch key {
 		case "FREQ":
-			result.Freq, e = cnv.StrToFreq(value)
+			result.Freq, e = StrToFreq(value)
 			freqSet = true
 		case "DTSTART":
-			result.Dtstart, e = cnv.strToTimeInLoc(value, loc)
+			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
 		case "WKST":
@@ -269,7 +248,7 @@ func (cnv *StringConverter) StrToROptionInLocation(rfcString string, loc *time.L
 		case "COUNT":
 			result.Count, e = strconv.Atoi(value)
 		case "UNTIL":
-			result.Until, e = cnv.strToTimeInLoc(value, loc)
+			result.Until, e = strToTimeInLoc(value, loc)
 		case "BYSETPOS":
 			result.Bysetpos, e = strToInts(value)
 		case "BYMONTH":
@@ -327,8 +306,8 @@ func (set *Set) String() string {
 }
 
 // StrToRRule converts string to RRule
-func (cnv *StringConverter) StrToRRule(rfcString string) (*RRule, error) {
-	option, e := cnv.StrToROption(rfcString)
+func StrToRRule(rfcString string) (*RRule, error) {
+	option, e := StrToROption(rfcString)
 	if e != nil {
 		return nil, e
 	}
@@ -336,25 +315,25 @@ func (cnv *StringConverter) StrToRRule(rfcString string) (*RRule, error) {
 }
 
 // StrToRRuleSet converts string to RRuleSet
-func (cnv *StringConverter) StrToRRuleSet(s string) (*Set, error) {
+func StrToRRuleSet(s string) (*Set, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, errors.New("empty string")
 	}
 	ss := strings.Split(s, "\n")
-	return cnv.StrSliceToRRuleSet(ss)
+	return StrSliceToRRuleSet(ss)
 }
 
 // StrSliceToRRuleSet converts given str slice to RRuleSet
 // In case there is a time met in any rule without specified time zone, when
 // it is parsed in UTC (see StrSliceToRRuleSetInLoc)
-func (cnv *StringConverter) StrSliceToRRuleSet(ss []string) (*Set, error) {
-	return cnv.StrSliceToRRuleSetInLoc(ss, time.UTC)
+func StrSliceToRRuleSet(ss []string) (*Set, error) {
+	return StrSliceToRRuleSetInLoc(ss, time.UTC)
 }
 
 // StrSliceToRRuleSetInLoc is same as StrSliceToRRuleSet, but by default parses local times
 // in specified default location
-func (cnv *StringConverter) StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, error) {
+func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, error) {
 	if len(ss) == 0 {
 		return &Set{}, nil
 	}
@@ -367,7 +346,7 @@ func (cnv *StringConverter) StrSliceToRRuleSetInLoc(ss []string, defaultLoc *tim
 		return nil, err
 	}
 	if firstName == "DTSTART" {
-		dt, err := cnv.StrToDtStart(ss[0][len(firstName)+1:], defaultLoc)
+		dt, err := StrToDtStart(ss[0][len(firstName)+1:], defaultLoc)
 		if err != nil {
 			return nil, fmt.Errorf("StrToDtStart failed: %v", err)
 		}
@@ -388,7 +367,7 @@ func (cnv *StringConverter) StrSliceToRRuleSetInLoc(ss []string, defaultLoc *tim
 
 		switch name {
 		case "RRULE":
-			rOpt, err := cnv.StrToROptionInLocation(rule, defaultLoc)
+			rOpt, err := StrToROptionInLocation(rule, defaultLoc)
 			if err != nil {
 				return nil, fmt.Errorf("StrToROption failed: %v", err)
 			}
@@ -398,7 +377,7 @@ func (cnv *StringConverter) StrSliceToRRuleSetInLoc(ss []string, defaultLoc *tim
 			}
 			set.RRule(r)
 		case "RDATE", "EXDATE":
-			ts, err := cnv.StrToDatesInLoc(rule, defaultLoc)
+			ts, err := StrToDatesInLoc(rule, defaultLoc)
 			if err != nil {
 				return nil, fmt.Errorf("strToDates failed: %v", err)
 			}
@@ -431,13 +410,13 @@ func timeToRFCDatetimeStr(time time.Time) string {
 // Accepts string with format: "VALUE=DATE-TIME;[TZID=...]:{time},{time},...,{time}"
 // or simply "{time},{time},...{time}" and parses it to array of dates
 // In case no time zone specified in str, when all dates are parsed in UTC
-func (cnv *StringConverter) StrToDates(str string) (ts []time.Time, err error) {
-	return cnv.StrToDatesInLoc(str, time.UTC)
+func StrToDates(str string) (ts []time.Time, err error) {
+	return StrToDatesInLoc(str, time.UTC)
 }
 
 // StrToDatesInLoc same as StrToDates but it consideres default location to parse dates in
 // in case no location specified with TZID parameter
-func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Location) (ts []time.Time, err error) {
+func StrToDatesInLoc(str string, defaultLoc *time.Location) (ts []time.Time, err error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 {
 		return nil, fmt.Errorf("bad format")
@@ -447,7 +426,7 @@ func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Locatio
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
 			if strings.HasPrefix(param, "TZID=") {
-				loc, err = cnv.tzidParser.parseTZID(strings.TrimPrefix(param, "TZID="))
+				loc, err = parseTZID(strings.TrimPrefix(param, "TZID="))
 			} else if param != "VALUE=DATE-TIME" && param != "VALUE=DATE" {
 				err = fmt.Errorf("unsupported: %v", param)
 			}
@@ -458,7 +437,7 @@ func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Locatio
 		tmp = tmp[1:]
 	}
 	for _, datestr := range strings.Split(tmp[0], ",") {
-		t, err := cnv.strToTimeInLoc(datestr, loc)
+		t, err := strToTimeInLoc(datestr, loc)
 		if err != nil {
 			return nil, fmt.Errorf("strToTime failed: %v", err)
 		}
@@ -489,7 +468,7 @@ func processRRuleName(line string) (string, error) {
 
 // StrToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
 // may be used to parse DTSTART rules, without the DTSTART; part.
-func (cnv *StringConverter) StrToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
+func StrToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 || len(tmp) == 0 {
 		return time.Time{}, fmt.Errorf("bad format")
@@ -501,15 +480,8 @@ func (cnv *StringConverter) StrToDtStart(str string, defaultLoc *time.Location) 
 		if err != nil {
 			return time.Time{}, err
 		}
-		return cnv.strToTimeInLoc(tmp[1], loc)
+		return strToTimeInLoc(tmp[1], loc)
 	}
 	// no tzid, len == 1
-	return cnv.strToTimeInLoc(tmp[0], defaultLoc)
-}
-
-func parseTZID(s string) (*time.Location, error) {
-	if !strings.HasPrefix(s, "TZID=") || len(s) == len("TZID=") {
-		return nil, fmt.Errorf("bad TZID parameter format")
-	}
-	return time.LoadLocation(s[len("TZID="):])
+	return strToTimeInLoc(tmp[0], defaultLoc)
 }
