@@ -32,7 +32,7 @@ func NewTzidParser() *TzidParser {
 // corresponding to a file in the IANA Time Zone database.
 // The function caches location values in the hash table inside of tzidParser.
 func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
-	if len(s) == len("TZID=") {
+	if len(s) == 0 {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
 	val, has := parser.timezones.Load(s)
