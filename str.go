@@ -444,9 +444,6 @@ func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Locatio
 	if len(tmp) == 2 {
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
-			if len(param) == len("TZID=") {
-				return nil, fmt.Errorf("bad TZID parameter format")
-			}
 			if strings.HasPrefix(param, "TZID=") {
 				loc, err = cnv.tzidParser.parseTZID(param)
 			} else if param != "VALUE=DATE-TIME" && param != "VALUE=DATE" {
