@@ -28,11 +28,10 @@ func parseTZID(s string) (*time.Location, error) {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
 	val, has := timezonesCache.Load(s)
-	location := val.(*time.Location)
 	if has {
-		return location, nil
+		return val.(*time.Location), nil
 	}
-	location, err := time.LoadLocation(s[len("TZID="):])
+	location, err := time.LoadLocation(s)
 	if err != nil {
 		return nil, err
 	}
@@ -474,9 +473,9 @@ func StrToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("bad format")
 	}
 
-	if len(tmp) == 2 {
+	if len(tmp) == 2 && strings.HasPrefix(tmp[0], "TZID=") {
 		// tzid
-		loc, err := parseTZID(tmp[0])
+		loc, err := parseTZID(strings.TrimPrefix(tmp[0], "TZID="))
 		if err != nil {
 			return time.Time{}, err
 		}
