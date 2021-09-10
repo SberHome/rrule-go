@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,12 +19,12 @@ const (
 )
 
 type TzidParser struct {
-	timezones map[string]*time.Location
+	timezones *sync.Map
 }
 
 func NewTzidParser() *TzidParser {
 	return &TzidParser{
-		timezones: make(map[string]*time.Location),
+		timezones: new(sync.Map),
 	}
 }
 
@@ -34,7 +35,8 @@ func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
 	if len(s) == len("TZID=") {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
-	location, has := parser.timezones[s]
+	val, has := parser.timezones.Load(s)
+	location := val.(*time.Location)
 	if has {
 		return location, nil
 	}
@@ -42,7 +44,7 @@ func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
 	if err != nil {
 		return nil, err
 	}
-	parser.timezones[s] = location
+	parser.timezones.Store(s, location)
 	return location, nil
 }
 
