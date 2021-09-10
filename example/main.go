@@ -91,8 +91,7 @@ func exampleStrToRRule() {
 
 func exampleStrToRRuleSet() {
 	s, err := rrule.StrToRRuleSet(`DTSTART;TZID=Europe/Moscow:20210901T130255
-RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5;X-FILTER-DAY=ANY;X-COLOR=#00ffa
-RDATE:20060102T150405Z`)
+RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5;X-FILTER-DAY=ANY;X-COLOR=#00ffa`)
 	if err != nil {
 		fmt.Println(err)
 		return
