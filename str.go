@@ -18,7 +18,7 @@ const (
 	DateFormat = "20060102"
 )
 
-var timezones = new(sync.Map)
+var timezonesCache = new(sync.Map)
 
 // parseTZID parses TZID value and returns location
 // corresponding to a file in the IANA Time Zone database.
@@ -27,7 +27,7 @@ func parseTZID(s string) (*time.Location, error) {
 	if len(s) == 0 {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
-	val, has := timezones.Load(s)
+	val, has := timezonesCache.Load(s)
 	location := val.(*time.Location)
 	if has {
 		return location, nil
@@ -36,7 +36,7 @@ func parseTZID(s string) (*time.Location, error) {
 	if err != nil {
 		return nil, err
 	}
-	timezones.Store(s, location)
+	timezonesCache.Store(s, location)
 	return location, nil
 }
 
