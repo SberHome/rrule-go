@@ -90,8 +90,12 @@ func exampleStrToRRule() {
 }
 
 func exampleStrToRRuleSet() {
-	s, _ := rrule.StrToRRuleSet(`RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5;X-FILTER-DAY=ANY;X-COLOR=#00ffa
-RDATE:20060102T150405Z`)
+	s, err := rrule.StrToRRuleSet(`DTSTART;TZID=Europe/Moscow:20210901T130255
+RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5;X-FILTER-DAY=ANY;X-COLOR=#00ffa`)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	fmt.Println(s.All())
 	// [2006-01-02 15:04:05 +0000 UTC
 	//  2020-10-12 02:26:35 +0000 UTC
@@ -100,18 +104,22 @@ RDATE:20060102T150405Z`)
 	//  2020-11-11 02:26:35 +0000 UTC
 	//  2020-11-21 02:26:35 +0000 UTC]
 
-	attrs := s.GetRRule().GetCustomAttributes()
+	rruleField := s.GetRRule()
+	if rruleField == nil {
+		fmt.Println("rrule is empty")
+		return
+	}
+	attrs := rruleField.GetCustomAttributes()
 	for key, val := range attrs {
 		fmt.Printf("%s = %s\n", key, val)
 	}
-
 	// X-FILTER-DAY = ANY
 	// X-COLOR = #00ffa
 }
 
 func main() {
-	exampleRRule()
-	exampleRRuleSet()
-	exampleStrToRRule()
+	// exampleRRule()
+	// exampleRRuleSet()
+	// exampleStrToRRule()
 	exampleStrToRRuleSet()
 }
