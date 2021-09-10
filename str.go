@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,24 +19,24 @@ const (
 )
 
 type TzidParser struct {
-	timezones map[string]*time.Location
+	timezones *sync.Map
 }
 
 func NewTzidParser() *TzidParser {
-	return new(TzidParser)
+	return &TzidParser{
+		timezones: new(sync.Map),
+	}
 }
 
 // parseTZID parses TZID value and returns location
 // corresponding to a file in the IANA Time Zone database.
 // The function caches location values in the hash table inside of tzidParser.
 func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
-	if !strings.HasPrefix(s, "TZID=") || len(s) == len("TZID=") {
+	if len(s) == 0 {
 		return nil, fmt.Errorf("bad TZID parameter format")
 	}
-	if parser.timezones == nil {
-		parser.timezones = make(map[string]*time.Location)
-	}
-	location, has := parser.timezones[s]
+	val, has := parser.timezones.Load(s)
+	location := val.(*time.Location)
 	if has {
 		return location, nil
 	}
@@ -43,7 +44,7 @@ func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
 	if err != nil {
 		return nil, err
 	}
-	parser.timezones[s] = location
+	parser.timezones.Store(s, location)
 	return location, nil
 }
 
@@ -446,7 +447,7 @@ func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Locatio
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
 			if strings.HasPrefix(param, "TZID=") {
-				loc, err = cnv.tzidParser.parseTZID(param)
+				loc, err = cnv.tzidParser.parseTZID(strings.TrimPrefix(param, "TZID="))
 			} else if param != "VALUE=DATE-TIME" && param != "VALUE=DATE" {
 				err = fmt.Errorf("unsupported: %v", param)
 			}
