@@ -22,18 +22,17 @@ type TzidParser struct {
 }
 
 func NewTzidParser() *TzidParser {
-	return new(TzidParser)
+	return &TzidParser{
+		timezones: make(map[string]*time.Location),
+	}
 }
 
 // parseTZID parses TZID value and returns location
 // corresponding to a file in the IANA Time Zone database.
 // The function caches location values in the hash table inside of tzidParser.
 func (parser *TzidParser) parseTZID(s string) (*time.Location, error) {
-	if !strings.HasPrefix(s, "TZID=") || len(s) == len("TZID=") {
+	if len(s) == len("TZID=") {
 		return nil, fmt.Errorf("bad TZID parameter format")
-	}
-	if parser.timezones == nil {
-		parser.timezones = make(map[string]*time.Location)
 	}
 	location, has := parser.timezones[s]
 	if has {
@@ -445,6 +444,9 @@ func (cnv *StringConverter) StrToDatesInLoc(str string, defaultLoc *time.Locatio
 	if len(tmp) == 2 {
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
+			if len(param) == len("TZID=") {
+				return nil, fmt.Errorf("bad TZID parameter format")
+			}
 			if strings.HasPrefix(param, "TZID=") {
 				loc, err = cnv.tzidParser.parseTZID(param)
 			} else if param != "VALUE=DATE-TIME" && param != "VALUE=DATE" {
